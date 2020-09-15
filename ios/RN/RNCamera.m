@@ -35,10 +35,12 @@
 @property (nonatomic, copy) RCTDirectEventBlock onPictureSaved;
 @property (nonatomic, copy) RCTDirectEventBlock onRecordingStart;
 @property (nonatomic, copy) RCTDirectEventBlock onRecordingEnd;
+@property (nonatomic, copy) RCTDirectEventBlock onLight;
 @property (nonatomic, assign) BOOL finishedReadingText;
 @property (nonatomic, assign) BOOL finishedDetectingFace;
 @property (nonatomic, copy) NSDate *startText;
 @property (nonatomic, copy) NSDate *startFace;
+@property (nonatomic, copy) NSDate *startLighting;
 
 @property (nonatomic, copy) RCTDirectEventBlock onSubjectAreaChanged;
 @property (nonatomic, assign) BOOL isFocusedOnPoint;
@@ -69,6 +71,7 @@ BOOL _sessionInterrupted = NO;
         self.finishedDetectingFace = true;
         self.startText = [NSDate date];
         self.startFace = [NSDate date];
+        self.startLighting = [NSDate date];
 #if !(TARGET_IPHONE_SIMULATOR)
         self.previewLayer =
         [AVCaptureVideoPreviewLayer layerWithSession:self.session];
@@ -170,6 +173,13 @@ BOOL _sessionInterrupted = NO;
 {
     if (_onCameraReady) {
         _onCameraReady(nil);
+    }
+}
+
+- (void)onLighting:(NSDictionary *)event
+{
+    if (_onLight) {
+        _onLight(event);
     }
 }
 
@@ -1848,11 +1858,20 @@ BOOL _sessionInterrupted = NO;
 
 - (void)setupMovieFileCapture
 {
-    AVCaptureMovieFileOutput *movieFileOutput = [[AVCaptureMovieFileOutput alloc] init];
-
-    if ([self.session canAddOutput:movieFileOutput]) {
-        [self.session addOutput:movieFileOutput];
-        self.movieFileOutput = movieFileOutput;
+    if ([self isLighting]) {
+        AVCaptureVideoDataOutput *output = [[AVCaptureVideoDataOutput alloc] init];
+        [output setSampleBufferDelegate:self queue:self.sessionQueue];
+        [self.session setSessionPreset:AVCaptureSessionPresetHigh];
+        if ([self.session canAddOutput:output]) {
+            [self.session addOutput:output];
+            self.videoDataOutput = output;
+        }
+    } else {
+        AVCaptureMovieFileOutput *movieFileOutput = [[AVCaptureMovieFileOutput alloc] init];
+        if ([self.session canAddOutput:movieFileOutput]) {
+            [self.session addOutput:movieFileOutput];
+            self.movieFileOutput = movieFileOutput;
+        }
     }
 }
 
@@ -2171,6 +2190,25 @@ BOOL _sessionInterrupted = NO;
     didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
            fromConnection:(AVCaptureConnection *)connection
 {
+    // add get light
+    NSDate *methodFinish = [NSDate date];
+    if ([self isLighting]) {
+        NSTimeInterval timePassedSinceSubmittingForLighting = [methodFinish timeIntervalSinceDate:self.startLighting];
+        BOOL canSubmitForLighting = timePassedSinceSubmittingForLighting > 0.3;
+        if (canSubmitForLighting) {
+            CFDictionaryRef metadataDict = CMCopyDictionaryOfAttachments(NULL,sampleBuffer, kCMAttachmentMode_ShouldPropagate);
+            NSDictionary *metadata = [[NSMutableDictionary alloc] initWithDictionary:(__bridge NSDictionary*)metadataDict];
+            CFRelease(metadataDict);
+            NSDictionary *exifMetadata = [[metadata objectForKey:(NSString *)kCGImagePropertyExifDictionary] mutableCopy];
+            float brightnessValue = [[exifMetadata objectForKey:(NSString *)kCGImagePropertyExifBrightnessValue] floatValue];
+
+            NSDictionary *eventLight = @{@"light" : [NSNumber numberWithFloat: brightnessValue]};
+            [self onLighting:eventLight];
+            self.startLighting = [NSDate date];
+        }
+        return;
+    }
+
     if (![self.textDetector isRealDetector] && ![self.faceDetector isRealDetector] && ![self.barcodeDetector isRealDetector]) {
         NSLog(@"failing real check");
         return;

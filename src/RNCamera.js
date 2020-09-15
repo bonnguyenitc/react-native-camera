@@ -263,6 +263,7 @@ type PropsType = typeof View.props & {
   onRecordingEnd?: Function,
   onTap?: Function,
   onDoubleTap?: Function,
+  onLight?: Function,
   onGoogleVisionBarcodesDetected?: ({ barcodes: Array<TrackedBarcodeFeature> }) => void,
   onSubjectAreaChanged?: ({ nativeEvent: { prevPoint: {| x: number, y: number |} } }) => void,
   faceDetectionMode?: number,
@@ -404,6 +405,7 @@ export default class Camera extends React.Component<PropsType, StateType> {
     onAudioConnected: PropTypes.func,
     onStatusChange: PropTypes.func,
     onBarCodeRead: PropTypes.func,
+    onLight: PropTypes.func,
     onPictureTaken: PropTypes.func,
     onPictureSaved: PropTypes.func,
     onRecordingStart: PropTypes.func,
@@ -843,6 +845,7 @@ export default class Camera extends React.Component<PropsType, StateType> {
               this.props.onGoogleVisionBarcodesDetected,
             )}
             onBarCodeRead={this._onObjectDetected(this.props.onBarCodeRead)}
+            onLight={this._onObjectDetected(this.props.onLight)}
             onTouch={this._onTouch}
             onFacesDetected={this._onObjectDetected(this.props.onFacesDetected)}
             onTextRecognized={this._onObjectDetected(this.props.onTextRecognized)}
@@ -864,6 +867,10 @@ export default class Camera extends React.Component<PropsType, StateType> {
 
     if (props.onBarCodeRead) {
       newProps.barCodeScannerEnabled = true;
+    }
+
+    if (props.onLight) {
+      newProps.isLighting = true;
     }
 
     if (props.onGoogleVisionBarcodesDetected) {
@@ -912,6 +919,7 @@ const RNCamera = requireNativeComponent('RNCamera', Camera, {
     textRecognizerEnabled: true,
     importantForAccessibility: true,
     onBarCodeRead: true,
+    onLight: true,
     onGoogleVisionBarcodesDetected: true,
     onCameraReady: true,
     onAudioInterrupted: true,
@@ -924,5 +932,6 @@ const RNCamera = requireNativeComponent('RNCamera', Camera, {
     onSubjectAreaChanged: true,
     renderToHardwareTextureAndroid: true,
     testID: true,
+    lightingEnabled: true,
   },
 });

@@ -225,7 +225,7 @@ export interface RNCameraProps {
   googleVisionBarcodeMode?: Constants['GoogleVisionBarcodeDetection']['BarcodeMode'];
   onBarCodeRead?(event: BarCodeReadEvent): void;
   onGoogleVisionBarcodesDetected?(event: GoogleVisionBarcodesDetectedEvent): void;
-
+  onLight?(event: {light: Number}): void;
   // limiting scan area
   rectOfInterest?: Point;
 
